@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pokémon Info Fetcher</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Pokémon Info Fetcher</h1>
+
+    <input type="text" id="pokemonInput" placeholder="Enter Pokémon name">
+    <button onclick="searchPokemon()">Search</button>
+
+    <div id="result"></div>
+
+    <script>
+        async function searchPokemon() {
+            const name = document.getElementById("pokemonInput").value;
+            const resultDiv = document.getElementById("result");
+
+            if (!name) {
+                resultDiv.innerHTML = "Please enter a Pokémon name.";
+                return;
+            }
+
+            try {
+                const response = await fetch(`/pokemon/${name}`);
+                
+                if (!response.ok) {
+                    throw new Error("Pokémon not found");
+                }
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <h2>${data.name.toUpperCase()}</h2>
+                    <p><strong>Height:</strong> ${data.height}</p>
+                    <p><strong>Weight:</strong> ${data.weight}</p>
+                    <p><strong>Types:</strong> ${data.types.join(", ")}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = error.message;
+            }
+        }
+    </script>
+
+</body>
+</html>
