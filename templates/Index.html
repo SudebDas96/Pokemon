@@ -1,71 +1,197 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Pokémon Info Fetcher</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokéDex Explorer Pro</title>
     <style>
+        :root {
+            --poke-red: #ef5350;
+            --poke-blue: #2a75bb;
+            --bg-color: #f8f9fa;
+        }
+
         body {
-            font-family: Arial;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 25px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
             text-align: center;
-            margin-top: 50px;
         }
 
+        .search-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; }
+        .input-row { display: flex; gap: 8px; }
+        
         input {
-            padding: 10px;
-            font-size: 16px;
-            width: 200px;
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            outline: none;
         }
 
-        button {
-            padding: 10px;
-            font-size: 16px;
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-primary { background: var(--poke-red); color: white; }
+        .btn-random { background: #6c757d; color: white; }
+        .btn:hover { opacity: 0.8; transform: translateY(-1px); }
+
+        /* Evolution Section */
+        .evo-container {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .evo-flex {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .evo-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.8rem;
+            text-transform: capitalize;
             cursor: pointer;
         }
 
-        #result {
-            margin-top: 20px;
+        .evo-img {
+            width: 70px;
+            height: 70px;
+            background: #fdfdfd;
+            border-radius: 50%;
+            margin-bottom: 5px;
+            transition: 0.3s;
         }
+
+        .evo-item:hover .evo-img { background: #eee; }
+
+        .arrow { font-weight: bold; color: #ccc; }
+
+        /* Reusing previous styles for Pokemon Info */
+        .pokemon-main-img { width: 180px; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.1)); }
+        .type-badge {
+            padding: 5px 15px; border-radius: 20px; color: white; 
+            font-size: 0.7rem; font-weight: bold; margin: 3px; text-transform: uppercase;
+        }
+        .type-grass { background: #78C850; } .type-fire { background: #F08030; }
+        .type-water { background: #6890F0; } .type-default { background: #A8A878; }
     </style>
 </head>
 <body>
 
-    <h1>Pokémon Info Fetcher</h1>
+    <div class="card">
+        <h1 style="color: var(--poke-red);">PokéDex</h1>
 
-    <input type="text" id="pokemonInput" placeholder="Enter Pokémon name">
-    <button onclick="searchPokemon()">Search</button>
+        <div class="search-container">
+            <div class="input-row">
+                <input type="text" id="pokemonInput" placeholder="Enter Name or ID...">
+                <button class="btn btn-primary" onclick="searchPokemon()">Catch!</button>
+            </div>
+            <button class="btn btn-random" onclick="randomPokemon()">🎲 Surprise Me!</button>
+        </div>
 
-    <div id="result"></div>
+        <div id="result"></div>
+    </div>
 
     <script>
-        async function searchPokemon() {
-            const name = document.getElementById("pokemonInput").value;
-            const resultDiv = document.getElementById("result");
+        async function randomPokemon() {
+            const id = Math.floor(Math.random() * 1010) + 1;
+            searchPokemon(id);
+        }
 
-            if (!name) {
-                resultDiv.innerHTML = "Please enter a Pokémon name.";
-                return;
-            }
+        async function searchPokemon(queryOverride) {
+            const query = queryOverride || document.getElementById("pokemonInput").value.toLowerCase().trim();
+            const resultDiv = document.getElementById("result");
+            if (!query) return;
+
+            resultDiv.innerHTML = "Searching...";
 
             try {
-                const response = await fetch(`/pokemon/${name}`);
-                
-                if (!response.ok) {
-                    throw new Error("Pokémon not found");
+                // 1. Get Base Pokemon Data
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${query}`);
+                const data = await res.json();
+
+                // 2. Get Species Data (to find the evolution chain URL)
+                const speciesRes = await fetch(data.species.url);
+                const speciesData = await speciesRes.json();
+
+                // 3. Get Evolution Chain Data
+                const evoRes = await fetch(speciesData.evolution_chain.url);
+                const evoData = await evoRes.json();
+
+                // Process Evolutions
+                const evolutions = [];
+                let current = evoData.chain;
+
+                // Loop through the evolution tree
+                while (current) {
+                    const name = current.species.name;
+                    // Fetch sprite for each evolution
+                    const pRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+                    const pData = await pRes.json();
+                    
+                    evolutions.push({
+                        name: name,
+                        image: pData.sprites.front_default
+                    });
+                    current = current.evolves_to[0]; // Simplification for linear evolutions
                 }
 
-                const data = await response.json();
+                renderPokemon(data, evolutions);
 
-                resultDiv.innerHTML = `
-                    <h2>${data.name.toUpperCase()}</h2>
-                    <img src="${data.image}" alt="${data.name}" style="width:150px;">
-                    <p><strong>Height:</strong> ${data.height}</p>
-                    <p><strong>Weight:</strong> ${data.weight}</p>
-                    <p><strong>Types:</strong> ${data.types.join(", ")}</p>
-                `;
-            } catch (error) {
-                resultDiv.innerHTML = error.message;
+            } catch (err) {
+                resultDiv.innerHTML = "Pokémon not found.";
             }
         }
-    </script>
 
+        function renderPokemon(data, evolutions) {
+            const resultDiv = document.getElementById("result");
+            
+            const evoHTML = evolutions.map((evo, index) => `
+                <div class="evo-item" onclick="searchPokemon('${evo.name}')">
+                    <img src="${evo.image}" class="evo-img">
+                    <span>${evo.name}</span>
+                </div>
+                ${index < evolutions.length - 1 ? '<span class="arrow">→</span>' : ''}
+            `).join("");
+
+            resultDiv.innerHTML = `
+                <img src="${data.sprites.other['official-artwork'].front_default}" class="pokemon-main-img">
+                <h2 style="text-transform:capitalize;">${data.name}</h2>
+                <div style="margin-bottom:15px;">
+                    ${data.types.map(t => `<span class="type-badge type-default">${t.type.name}</span>`).join("")}
+                </div>
+
+                <div class="evo-container">
+                    <h4 style="margin-top:0; color:#666;">Evolution Family</h4>
+                    <div class="evo-flex">${evoHTML}</div>
+                </div>
+            `;
+        }
+    </script>
 </body>
 </html>
