@@ -9,7 +9,11 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+    request=request, 
+    name="index.html", 
+    context={} # You can add other variables here later
+)
 
 @app.get("/pokemon/{pokemon_name}")
 def get_pokemon(pokemon_name: str):
